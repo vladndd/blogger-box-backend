@@ -1,121 +1,112 @@
 package com.dauphine.blogger_box_backend.service.impl;
 
+import com.dauphine.blogger_box_backend.exception.CategoryNotFoundByIdException;
+import com.dauphine.blogger_box_backend.exception.PostNotFoundByIdException;
 import com.dauphine.blogger_box_backend.models.Category;
 import com.dauphine.blogger_box_backend.models.Post;
-import com.dauphine.blogger_box_backend.service.CategoryService;
+import com.dauphine.blogger_box_backend.repositories.CategoryRepository;
+import com.dauphine.blogger_box_backend.repositories.PostRepository;
 import com.dauphine.blogger_box_backend.service.PostService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class PostServiceImpl implements PostService {
 
-    private final List<Post> temporaryPosts;
-    private final CategoryService categoryService;
+    private final PostRepository postRepository;
+    private final CategoryRepository categoryRepository;
 
     @Autowired
-    public PostServiceImpl(CategoryService categoryService) {
-        this.categoryService = categoryService;
-
-        temporaryPosts = new ArrayList<>();
-        Category category1 = categoryService.getById(
-                categoryService.getAll().isEmpty() ? null : categoryService.getAll().get(0).getId());
-
-        temporaryPosts.add(new Post(UUID.randomUUID(), "my first post", "my first post content",
-                LocalDateTime.now().minusDays(2), category1));
-        temporaryPosts.add(new Post(UUID.randomUUID(), "my second post", "my second post content",
-                LocalDateTime.now().minusDays(1), category1));
-
-        if (categoryService.getAll().size() > 1) {
-            Category category2 = categoryService.getById(categoryService.getAll().get(1).getId());
-            temporaryPosts.add(new Post(UUID.randomUUID(), "my third post", "my third post content",
-                    LocalDateTime.now(), category2));
-        }
+    public PostServiceImpl(PostRepository postRepository, CategoryRepository categoryRepository) {
+        this.postRepository = postRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Post> getAllByCategory(UUID categoryId) {
-        return temporaryPosts.stream()
-                .filter(post -> post.getCategory() != null && post.getCategory().getId().equals(categoryId))
-                .collect(Collectors.toList());
+        return postRepository.findByCategory(categoryId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Post> getAll() {
-        return new ArrayList<>(temporaryPosts);
+        return postRepository.findAll();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Post getById(UUID id) {
-        return temporaryPosts.stream()
-                .filter(post -> post.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+        return postRepository.findById(id)
+                .orElseThrow(() -> new PostNotFoundByIdException(id));
     }
 
     @Override
+    @Transactional
     public Post create(String title, String content, UUID categoryId) {
         Category category = null;
         if (categoryId != null) {
-            category = categoryService.getById(categoryId);
-            if (category == null) {
-                return null;
-            }
+            category = categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new CategoryNotFoundByIdException(categoryId));
         }
 
-        Post newPost = new Post(
-                UUID.randomUUID(),
-                title,
-                content,
-                LocalDateTime.now(),
-                category);
+        Post newPost = new Post();
+        newPost.setTitle(title);
+        newPost.setContent(content);
+        newPost.setCreatedAt(LocalDateTime.now());
+        newPost.setCategory(category);
 
-        temporaryPosts.add(newPost);
-        return newPost;
+        return postRepository.save(newPost);
     }
 
     @Override
+    @Transactional
     public Post update(UUID id, String title, String content) {
-        for (int i = 0; i < temporaryPosts.size(); i++) {
-            Post post = temporaryPosts.get(i);
-            if (post.getId().equals(id)) {
-                Post updated = new Post(
-                        id,
-                        title != null ? title : post.getTitle(),
-                        content != null ? content : post.getContent(),
-                        post.getCreatedAt(),
-                        post.getCategory());
-
-                temporaryPosts.set(i, updated);
-                return updated;
-            }
+        Post post = getById(id);
+        
+        if (title != null) {
+            post.setTitle(title);
         }
-
-        return null;
+        
+        if (content != null) {
+            post.setContent(content);
+        }
+        
+        return postRepository.save(post);
     }
 
     @Override
+    @Transactional
     public boolean deleteById(UUID id) {
-        return temporaryPosts.removeIf(post -> post.getId().equals(id));
+        if (!postRepository.existsById(id)) {
+            return false;
+        }
+        
+        postRepository.deleteById(id);
+        return true;
     }
 
+    @Override
+    @Transactional(readOnly = true)
     public List<Post> getLatestPosts() {
-        List<Post> sortedPosts = new ArrayList<>(temporaryPosts);
-        sortedPosts.sort((post1, post2) -> {
-            if (post1.getCreatedAt() == null)
-                return 1;
-            if (post2.getCreatedAt() == null)
-                return -1;
-            return post2.getCreatedAt().compareTo(post1.getCreatedAt());
-        });
-
-        return sortedPosts;
+        return postRepository.findLatestPosts();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<Post> searchByTitle(String title) {
+        return postRepository.findAllLikeTitle(title);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<Post> searchByContent(String content) {
+        return postRepository.findAllLikeContent(content);
     }
 }

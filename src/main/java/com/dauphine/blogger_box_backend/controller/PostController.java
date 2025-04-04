@@ -4,6 +4,7 @@ import com.dauphine.blogger_box_backend.dto.CategoryResponse;
 import com.dauphine.blogger_box_backend.dto.PostCreationRequest;
 import com.dauphine.blogger_box_backend.dto.PostResponse;
 import com.dauphine.blogger_box_backend.dto.PostUpdateRequest;
+import com.dauphine.blogger_box_backend.exception.PostNotFoundByIdException;
 import com.dauphine.blogger_box_backend.models.Post;
 import com.dauphine.blogger_box_backend.service.PostService;
 
@@ -51,7 +52,7 @@ public class PostController {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved the post"),
             @ApiResponse(responseCode = "404", description = "Post not found")
     })
-    public ResponseEntity<PostResponse> getPostById(@PathVariable UUID id) {
+    public ResponseEntity<PostResponse> getPostById(@PathVariable UUID id) throws PostNotFoundByIdException{
         Post post = postService.getById(id);
 
         if (post == null) {
@@ -88,7 +89,7 @@ public class PostController {
     })
     public ResponseEntity<PostResponse> updatePost(
             @PathVariable UUID id,
-            @RequestBody PostUpdateRequest request) {
+            @RequestBody PostUpdateRequest request) throws PostNotFoundByIdException {
 
         Post updatedPost = postService.update(
                 id,
@@ -108,7 +109,7 @@ public class PostController {
             @ApiResponse(responseCode = "204", description = "Successfully deleted the post"),
             @ApiResponse(responseCode = "404", description = "Post not found")
     })
-    public ResponseEntity<Void> deletePost(@PathVariable UUID id) {
+    public ResponseEntity<Void> deletePost(@PathVariable UUID id) throws PostNotFoundByIdException{
         boolean deleted = postService.deleteById(id);
 
         if (deleted) {

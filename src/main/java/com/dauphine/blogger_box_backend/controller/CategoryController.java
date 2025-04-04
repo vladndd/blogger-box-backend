@@ -15,6 +15,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.dauphine.blogger_box_backend.exception.CategoryNotFoundByIdException;
+
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -51,7 +54,7 @@ public class CategoryController {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved the category"),
             @ApiResponse(responseCode = "404", description = "Category not found")
     })
-    public ResponseEntity<CategoryResponse> getCategoryById(@PathVariable UUID id) {
+    public ResponseEntity<CategoryResponse> getCategoryById(@PathVariable UUID id) throws CategoryNotFoundByIdException  {
         Category category = categoryService.getById(id);
 
         if (category == null) {
@@ -82,7 +85,7 @@ public class CategoryController {
     })
     public ResponseEntity<CategoryResponse> updateCategory(
             @PathVariable UUID id,
-            @RequestBody CategoryUpdateRequest request) {
+            @RequestBody CategoryUpdateRequest request) throws CategoryNotFoundByIdException {
 
         Category updatedCategory = categoryService.updateName(id, request.getName());
 
